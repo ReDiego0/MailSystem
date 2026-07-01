@@ -1,6 +1,8 @@
 package org.ReDiego0.mailSystem
 
 import org.ReDiego0.mailSystem.api.MailApi
+import org.ReDiego0.mailSystem.gui.MailGui
+import org.ReDiego0.mailSystem.gui.MailGuiListener
 import org.ReDiego0.mailSystem.manager.MailManager
 import org.ReDiego0.mailSystem.manager.SimpleMailManager
 import org.ReDiego0.mailSystem.storage.MailStorage
@@ -15,6 +17,7 @@ class MailSystem : JavaPlugin() {
     private lateinit var executor: java.util.concurrent.ExecutorService
     private lateinit var storage: MailStorage
     private lateinit var manager: MailManager
+    private lateinit var gui: MailGui
 
     override fun onEnable() {
         saveDefaultConfig()
@@ -33,8 +36,12 @@ class MailSystem : JavaPlugin() {
 
         server.servicesManager.register(MailApi::class.java, manager.getApi(), this, ServicePriority.Normal)
 
+        gui = MailGui(this, manager)
+        server.pluginManager.registerEvents(MailGuiListener(gui), this)
+
         instance = this
         _manager = manager
+        _gui = gui
 
         logger.info("MailSystem enabled")
     }
@@ -51,11 +58,15 @@ class MailSystem : JavaPlugin() {
             private set
 
         private lateinit var _manager: MailManager
+        private lateinit var _gui: MailGui
 
         @JvmStatic
         fun getManager(): MailManager = _manager
 
         @JvmStatic
         fun getApi(): MailApi = _manager.getApi()
+
+        @JvmStatic
+        fun getGui(): MailGui = _gui
     }
 }
