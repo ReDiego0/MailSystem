@@ -1,0 +1,30 @@
+complex_mails:
+  welcome:
+    sender_name: "Welcome Committee"
+    sender_icon: "default"
+    title: "Welcome to the server!"
+    body:
+      - "Welcome to our server!"
+      - "Enjoy your stay."
+    ttl_days: 30
+    requires_online: false
+    rewards:
+      physical:
+        - material: DIAMOND
+          amount: 5
+      commands:
+        - command: "give %player% iron_ingot 10"
+          display_name: "§fIron Ingot ×10"
+          display_material: IRON_INGOT
+
+  maintenance:
+    sender_name: "Server"
+    sender_icon: "BARRIER"
+    title: "Server Maintenance"
+    body:
+      - "The server will undergo maintenance."
+    ttl_days: 1
+    requires_online: true
+    rewards:
+      physical: []
+      commands: []

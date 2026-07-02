@@ -2,6 +2,7 @@ package org.ReDiego0.mailSystem
 
 import org.ReDiego0.mailSystem.api.MailApi
 import org.ReDiego0.mailSystem.command.MailCommand
+import org.ReDiego0.mailSystem.config.ComplexMailLoader
 import org.ReDiego0.mailSystem.config.SimpleMailTemplate
 import org.ReDiego0.mailSystem.gui.MailGui
 import org.ReDiego0.mailSystem.gui.MailGuiListener
@@ -42,7 +43,9 @@ class MailSystem : JavaPlugin() {
         server.pluginManager.registerEvents(MailGuiListener(gui), this)
 
         val template = SimpleMailTemplate.fromConfig(config)
-        getCommand("mail")?.setExecutor(MailCommand(this, manager, gui, template))
+        val complexMailLoader = ComplexMailLoader(this)
+        complexMailLoader.load()
+        getCommand("mail")?.setExecutor(MailCommand(this, manager, gui, template, complexMailLoader))
 
         instance = this
         _manager = manager

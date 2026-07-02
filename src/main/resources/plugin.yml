@@ -14,5 +14,8 @@ permissions:
     description: Open mail inbox
     default: true
   mailsystem.command.send:
-    description: Send mail to players
+    description: Send simple mail to players
+    default: op
+  mailsystem.command.sendcomplex:
+    description: Send complex mail to players
     default: op
