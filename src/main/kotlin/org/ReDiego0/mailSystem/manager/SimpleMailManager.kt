@@ -113,6 +113,9 @@ class SimpleMailManager(
     override fun saveProfile(profile: MailProfile): CompletableFuture<Void> =
         storage.saveProfile(profile)
 
+    override fun getAllProfileUUIDs(): CompletableFuture<List<UUID>> =
+        storage.getAllProfileUUIDs()
+
     override fun getApi(): MailApi = api
 
     fun getStorage(): MailStorage = storage

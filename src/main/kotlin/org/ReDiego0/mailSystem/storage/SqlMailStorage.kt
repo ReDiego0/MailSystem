@@ -170,6 +170,20 @@ class SqlMailStorage(
             }
         }, executor)
 
+    override fun getAllProfileUUIDs(): CompletableFuture<List<UUID>> =
+        CompletableFuture.supplyAsync({
+            withConnection { conn ->
+                conn.prepareStatement("SELECT player_uuid FROM profiles").use { stmt ->
+                    val rs = stmt.executeQuery()
+                    val uuids = mutableListOf<UUID>()
+                    while (rs.next()) {
+                        uuids.add(UUID.fromString(rs.getString("player_uuid")))
+                    }
+                    uuids
+                }
+            }
+        }, executor)
+
     // ── Internal: DataSource & Schema ────────────────────────────────────
 
     private fun createDataSource(): HikariDataSource {

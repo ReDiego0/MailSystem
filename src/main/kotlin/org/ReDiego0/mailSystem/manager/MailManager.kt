@@ -25,5 +25,6 @@ interface MailManager {
     fun expireOldMails(): CompletableFuture<Int>
     fun loadProfile(playerUUID: UUID): CompletableFuture<MailProfile>
     fun saveProfile(profile: MailProfile): CompletableFuture<Void>
+    fun getAllProfileUUIDs(): CompletableFuture<List<UUID>>
     fun getApi(): MailApi
 }

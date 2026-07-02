@@ -1,3 +1,8 @@
+simple_mail:
+  sender_name: "Server"
+  sender_icon: "default"
+  ttl_days: 15
+
 storage:
   type: sqlite
   sqlite:

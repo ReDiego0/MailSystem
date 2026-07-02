@@ -1,4 +1,18 @@
 name: MailSystem
-version: '1.0.0'
+version: '${version}'
 main: org.ReDiego0.mailSystem.MailSystem
 api-version: '1.21'
+
+commands:
+  mail:
+    description: Open mail inbox or send mail
+    usage: /mail [send <player|*|@online> <title|body>]
+    permission: mailsystem.command.mail
+
+permissions:
+  mailsystem.command.mail:
+    description: Open mail inbox
+    default: true
+  mailsystem.command.send:
+    description: Send mail to players
+    default: op
