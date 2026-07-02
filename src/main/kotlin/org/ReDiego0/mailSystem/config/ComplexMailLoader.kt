@@ -31,7 +31,7 @@ class ComplexMailLoader(private val plugin: JavaPlugin) {
     }
 
     private fun parseConfig(id: String, section: ConfigurationSection): ComplexMailConfig {
-        return ComplexMailConfig(
+        val config = ComplexMailConfig(
             id = id,
             senderName = section.getString("sender_name", "Server")!!,
             senderIcon = section.getString("sender_icon", "default")!!,
@@ -39,8 +39,15 @@ class ComplexMailLoader(private val plugin: JavaPlugin) {
             body = section.getStringList("body"),
             ttlDays = section.getInt("ttl_days", 15),
             requiresOnline = section.getBoolean("requires_online", false),
-            rewards = parseRewards(section.getConfigurationSection("rewards"))
+            rewards = parseRewards(section.getConfigurationSection("rewards")),
+            conditions = parseConditions(section.getConfigurationSection("conditions"))
         )
+
+        if (config.conditions != null && config.conditions.papi.isNotEmpty() && !config.requiresOnline) {
+            plugin.logger.warning("Complex mail '$id' has PAPI conditions but requires_online is false. Forcing requires_online = true.")
+        }
+
+        return config
     }
 
     private fun parseRewards(section: ConfigurationSection?): ComplexMailRewards {
@@ -67,6 +74,23 @@ class ComplexMailLoader(private val plugin: JavaPlugin) {
         }
 
         return ComplexMailRewards(physical, commands)
+    }
+
+    private fun parseConditions(section: ConfigurationSection?): ComplexMailConditions? {
+        if (section == null) return null
+
+        val logic = section.getString("logic", "and") ?: "and"
+        val papi = section.getMapList("papi").mapNotNull { map ->
+            val placeholder = map["placeholder"] as? String ?: return@mapNotNull null
+            val operator = map["operator"] as? String ?: return@mapNotNull null
+            val value = map["value"] as? String ?: return@mapNotNull null
+            PapiConditionConfig(placeholder, operator, value)
+        }
+        val permissions = section.getStringList("permissions")
+
+        if (papi.isEmpty() && permissions.isEmpty()) return null
+
+        return ComplexMailConditions(logic, papi, permissions)
     }
 
     fun getConfig(id: String): ComplexMailConfig? = configs[id]

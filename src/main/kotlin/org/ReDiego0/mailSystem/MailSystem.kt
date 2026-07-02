@@ -2,6 +2,7 @@ package org.ReDiego0.mailSystem
 
 import org.ReDiego0.mailSystem.api.MailApi
 import org.ReDiego0.mailSystem.command.MailCommand
+import org.ReDiego0.mailSystem.condition.ConditionEvaluator
 import org.ReDiego0.mailSystem.config.ComplexMailLoader
 import org.ReDiego0.mailSystem.config.SimpleMailTemplate
 import org.ReDiego0.mailSystem.gui.MailGui
@@ -45,7 +46,8 @@ class MailSystem : JavaPlugin() {
         val template = SimpleMailTemplate.fromConfig(config)
         val complexMailLoader = ComplexMailLoader(this)
         complexMailLoader.load()
-        getCommand("mail")?.setExecutor(MailCommand(this, manager, gui, template, complexMailLoader))
+        val conditionEvaluator = ConditionEvaluator(this)
+        getCommand("mail")?.setExecutor(MailCommand(this, manager, gui, template, complexMailLoader, conditionEvaluator))
 
         instance = this
         _manager = manager

@@ -2,6 +2,7 @@ name: MailSystem
 version: '${version}'
 main: org.ReDiego0.mailSystem.MailSystem
 api-version: '1.21'
+softdepend: [PlaceholderAPI, LuckPerms]
 
 commands:
   mail:

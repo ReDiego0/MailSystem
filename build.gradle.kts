@@ -12,6 +12,12 @@ repositories {
     maven("https://repo.papermc.io/repository/maven-public/") {
         name = "papermc-repo"
     }
+    maven("https://repo.extendedclip.com/content/repositories/placeholderapi/") {
+        name = "placeholderapi"
+    }
+    maven("https://repo.luckperms.net/releases/") {
+        name = "luckperms"
+    }
 }
 
 dependencies {
@@ -20,6 +26,8 @@ dependencies {
     implementation("com.zaxxer:HikariCP:5.1.0")
     implementation("org.xerial:sqlite-jdbc:3.45.1.0")
     compileOnly("com.mysql:mysql-connector-j:9.1.0")
+    compileOnly("me.clip:placeholderapi:2.11.6")
+    compileOnly("net.luckperms:api:5.4")
 }
 
 tasks {

@@ -17,8 +17,16 @@ data class ComplexMailConfig(
     val body: List<String>,
     val ttlDays: Int,
     val requiresOnline: Boolean,
-    val rewards: ComplexMailRewards
+    val rewards: ComplexMailRewards,
+    val conditions: ComplexMailConditions?
 ) {
+    val effectiveRequiresOnline: Boolean
+        get() {
+            if (conditions != null && conditions.papi.isNotEmpty()) {
+                return true
+            }
+            return requiresOnline
+        }
     fun buildMail(recipientUUID: UUID): Mail {
         val builder = MailBuilder()
             .sender(senderName, createSenderIcon())
@@ -95,4 +103,18 @@ data class CommandRewardConfig(
     val command: String,
     val displayName: String,
     val displayMaterial: String
+)
+
+data class ComplexMailConditions(
+    val logic: String,
+    val papi: List<PapiConditionConfig>,
+    val permissions: List<String>
+) {
+    fun hasConditions(): Boolean = papi.isNotEmpty() || permissions.isNotEmpty()
+}
+
+data class PapiConditionConfig(
+    val placeholder: String,
+    val operator: String,
+    val value: String
 )

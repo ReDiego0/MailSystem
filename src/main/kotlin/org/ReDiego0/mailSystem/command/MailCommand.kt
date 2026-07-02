@@ -1,6 +1,8 @@
 package org.ReDiego0.mailSystem.command
 
 import org.ReDiego0.mailSystem.api.MailBuilder
+import org.ReDiego0.mailSystem.condition.ConditionEvaluator
+import org.ReDiego0.mailSystem.config.ComplexMailConfig
 import org.ReDiego0.mailSystem.config.ComplexMailLoader
 import org.ReDiego0.mailSystem.config.SimpleMailTemplate
 import org.ReDiego0.mailSystem.gui.MailGui
@@ -12,7 +14,6 @@ import org.bukkit.command.CommandExecutor
 import org.bukkit.command.CommandSender
 import org.bukkit.entity.Player
 import org.bukkit.plugin.java.JavaPlugin
-import java.util.UUID
 import java.util.concurrent.Executor
 
 class MailCommand(
@@ -20,7 +21,8 @@ class MailCommand(
     private val manager: MailManager,
     private val gui: MailGui,
     private val template: SimpleMailTemplate,
-    private val complexMailLoader: ComplexMailLoader
+    private val complexMailLoader: ComplexMailLoader,
+    private val conditionEvaluator: ConditionEvaluator
 ) : CommandExecutor {
 
     private val mainExecutor = Executor { Bukkit.getScheduler().runTask(plugin, it) }
@@ -152,13 +154,20 @@ class MailCommand(
         }
     }
 
-    private fun sendComplexToAll(sender: CommandSender, config: org.ReDiego0.mailSystem.config.ComplexMailConfig) {
+    private fun sendComplexToAll(sender: CommandSender, config: ComplexMailConfig) {
         manager.getAllProfileUUIDs().thenAcceptAsync({ uuids ->
-            val targets = if (config.requiresOnline) {
+            val filteredByOnline = if (config.effectiveRequiresOnline) {
                 uuids.filter { Bukkit.getPlayer(it)?.isOnline == true }
             } else {
                 uuids
             }
+
+            val targets = if (config.conditions != null) {
+                filteredByOnline.filter { conditionEvaluator.evaluate(it, config.conditions) }
+            } else {
+                filteredByOnline
+            }
+
             for (uuid in targets) {
                 manager.deliverMail(config.buildMail(uuid))
             }
@@ -166,22 +175,32 @@ class MailCommand(
         }, mainExecutor)
     }
 
-    private fun sendComplexToOnline(sender: CommandSender, config: org.ReDiego0.mailSystem.config.ComplexMailConfig) {
+    private fun sendComplexToOnline(sender: CommandSender, config: ComplexMailConfig) {
         val onlinePlayers = Bukkit.getOnlinePlayers()
-        for (player in onlinePlayers) {
+        val targets = if (config.conditions != null) {
+            onlinePlayers.filter { conditionEvaluator.evaluate(it.uniqueId, config.conditions) }
+        } else {
+            onlinePlayers.toList()
+        }
+
+        for (player in targets) {
             manager.deliverMail(config.buildMail(player.uniqueId))
         }
-        sender.sendMessage("\u00a7aSent complex mail '${config.id}' to ${onlinePlayers.size} player(s).")
+        sender.sendMessage("\u00a7aSent complex mail '${config.id}' to ${targets.size} player(s).")
     }
 
-    private fun sendComplexToPlayer(sender: CommandSender, playerName: String, config: org.ReDiego0.mailSystem.config.ComplexMailConfig) {
+    private fun sendComplexToPlayer(sender: CommandSender, playerName: String, config: ComplexMailConfig) {
         val offlinePlayer = Bukkit.getOfflinePlayer(playerName)
         if (!offlinePlayer.hasPlayedBefore() && !offlinePlayer.isOnline) {
             sender.sendMessage("\u00a7cPlayer '$playerName' has never played on this server.")
             return
         }
-        if (config.requiresOnline && !offlinePlayer.isOnline) {
+        if (config.effectiveRequiresOnline && !offlinePlayer.isOnline) {
             sender.sendMessage("\u00a7cPlayer '$playerName' must be online for this mail.")
+            return
+        }
+        if (config.conditions != null && !conditionEvaluator.evaluate(offlinePlayer.uniqueId, config.conditions)) {
+            sender.sendMessage("\u00a7cPlayer '$playerName' does not meet the conditions for this mail.")
             return
         }
         manager.deliverMail(config.buildMail(offlinePlayer.uniqueId))
