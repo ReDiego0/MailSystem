@@ -1,5 +1,6 @@
 package org.ReDiego0.mailSystem.config
 
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer
 import org.ReDiego0.mailSystem.api.MailBuilder
 import org.ReDiego0.mailSystem.model.Mail
 import org.ReDiego0.mailSystem.model.MailSource
@@ -48,6 +49,10 @@ data class ComplexMailConfig(
         return builder.build(recipientUUID)
     }
 
+    companion object {
+        private val LEGACY = LegacyComponentSerializer.legacySection()
+    }
+
     private fun createSenderIcon(): ItemStack {
         if (senderIcon.equals("default", ignoreCase = true)) {
             return MailBuilder.createDefaultSenderIcon()
@@ -68,7 +73,7 @@ data class ComplexMailConfig(
         val item = ItemStack(material, config.amount)
         if (config.name != null) {
             val meta = item.itemMeta
-            meta?.setDisplayName(config.name)
+            meta?.displayName(LEGACY.deserialize(config.name))
             item.itemMeta = meta
         }
         return item
@@ -82,7 +87,7 @@ data class ComplexMailConfig(
         }
         val item = ItemStack(material)
         val meta = item.itemMeta
-        meta?.setDisplayName(config.displayName)
+        meta?.displayName(LEGACY.deserialize(config.displayName))
         item.itemMeta = meta
         return item
     }

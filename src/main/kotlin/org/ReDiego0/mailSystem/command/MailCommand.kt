@@ -4,6 +4,7 @@ import org.ReDiego0.mailSystem.api.MailBuilder
 import org.ReDiego0.mailSystem.condition.ConditionEvaluator
 import org.ReDiego0.mailSystem.config.ComplexMailConfig
 import org.ReDiego0.mailSystem.config.ComplexMailLoader
+import org.ReDiego0.mailSystem.config.MessageManager
 import org.ReDiego0.mailSystem.config.SimpleMailTemplate
 import org.ReDiego0.mailSystem.gui.MailGui
 import org.ReDiego0.mailSystem.manager.MailManager
@@ -22,7 +23,8 @@ class MailCommand(
     private val gui: MailGui,
     private val template: SimpleMailTemplate,
     private val complexMailLoader: ComplexMailLoader,
-    private val conditionEvaluator: ConditionEvaluator
+    private val conditionEvaluator: ConditionEvaluator,
+    private val msg: MessageManager
 ) : CommandExecutor {
 
     private val mainExecutor = Executor { Bukkit.getScheduler().runTask(plugin, it) }
@@ -30,7 +32,7 @@ class MailCommand(
     override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<String>): Boolean {
         if (args.isEmpty()) {
             if (sender !is Player) {
-                sender.sendMessage("\u00a7cOnly players can open the mail GUI.")
+                msg.sendMessage(sender, "errors.only_players_gui")
                 return true
             }
             gui.open(sender)
@@ -40,7 +42,7 @@ class MailCommand(
         when (args[0].lowercase()) {
             "send" -> handleSend(sender, args)
             "sendcomplex" -> handleSendComplex(sender, args)
-            else -> sender.sendMessage("\u00a7cUnknown subcommand: ${args[0]}")
+            else -> msg.sendMessage(sender, "errors.unknown_subcommand", "subcommand" to args[0])
         }
 
         return true
@@ -50,12 +52,12 @@ class MailCommand(
 
     private fun handleSend(sender: CommandSender, args: Array<String>) {
         if (!sender.hasPermission("mailsystem.command.send")) {
-            sender.sendMessage("\u00a7cYou don't have permission to send mail.")
+            msg.sendMessage(sender, "errors.no_permission")
             return
         }
 
         if (args.size < 3) {
-            sender.sendMessage("\u00a7cUsage: /mail send <player|*|@online> <title|line2|line3>")
+            msg.sendMessage(sender, "errors.usage_send")
             return
         }
 
@@ -66,7 +68,7 @@ class MailCommand(
         val body = parts.drop(1)
 
         if (title.isBlank()) {
-            sender.sendMessage("\u00a7cTitle cannot be empty.")
+            msg.sendMessage(sender, "errors.title_empty")
             return
         }
 
@@ -89,7 +91,7 @@ class MailCommand(
                     .build(uuid)
                 manager.deliverMail(mail)
             }
-            sender.sendMessage("\u00a7aSent mail to ${uuids.size} player(s).")
+            msg.sendMessage(sender, "notifications.mail_sent", "count" to uuids.size.toString())
         }, mainExecutor)
     }
 
@@ -105,13 +107,13 @@ class MailCommand(
                 .build(player.uniqueId)
             manager.deliverMail(mail)
         }
-        sender.sendMessage("\u00a7aSent mail to ${onlinePlayers.size} player(s).")
+        msg.sendMessage(sender, "notifications.mail_sent", "count" to onlinePlayers.size.toString())
     }
 
     private fun sendSimpleToPlayer(sender: CommandSender, playerName: String, title: String, body: List<String>) {
         val offlinePlayer = Bukkit.getOfflinePlayer(playerName)
         if (!offlinePlayer.hasPlayedBefore() && !offlinePlayer.isOnline) {
-            sender.sendMessage("\u00a7cPlayer '$playerName' has never played on this server.")
+            msg.sendMessage(sender, "errors.player_not_found", "player" to playerName)
             return
         }
         val mail = MailBuilder()
@@ -122,19 +124,19 @@ class MailCommand(
             .source(MailSource.Config)
             .build(offlinePlayer.uniqueId)
         manager.deliverMail(mail)
-        sender.sendMessage("\u00a7aSent mail to $playerName.")
+        msg.sendMessage(sender, "notifications.mail_sent_to", "player" to playerName)
     }
 
     // ── Complex Send ─────────────────────────────────────────────────────
 
     private fun handleSendComplex(sender: CommandSender, args: Array<String>) {
         if (!sender.hasPermission("mailsystem.command.sendcomplex")) {
-            sender.sendMessage("\u00a7cYou don't have permission to send complex mail.")
+            msg.sendMessage(sender, "errors.no_permission_complex")
             return
         }
 
         if (args.size < 3) {
-            sender.sendMessage("\u00a7cUsage: /mail sendcomplex <player|*|@online> <id>")
+            msg.sendMessage(sender, "errors.usage_sendcomplex")
             return
         }
 
@@ -143,7 +145,7 @@ class MailCommand(
         val config = complexMailLoader.getConfig(id)
 
         if (config == null) {
-            sender.sendMessage("\u00a7cComplex mail '$id' not found.")
+            msg.sendMessage(sender, "errors.complex_not_found", "id" to id)
             return
         }
 
@@ -171,7 +173,7 @@ class MailCommand(
             for (uuid in targets) {
                 manager.deliverMail(config.buildMail(uuid))
             }
-            sender.sendMessage("\u00a7aSent complex mail '${config.id}' to ${targets.size} player(s).")
+            msg.sendMessage(sender, "notifications.complex_sent", "id" to config.id, "count" to targets.size.toString())
         }, mainExecutor)
     }
 
@@ -186,24 +188,24 @@ class MailCommand(
         for (player in targets) {
             manager.deliverMail(config.buildMail(player.uniqueId))
         }
-        sender.sendMessage("\u00a7aSent complex mail '${config.id}' to ${targets.size} player(s).")
+        msg.sendMessage(sender, "notifications.complex_sent", "id" to config.id, "count" to targets.size.toString())
     }
 
     private fun sendComplexToPlayer(sender: CommandSender, playerName: String, config: ComplexMailConfig) {
         val offlinePlayer = Bukkit.getOfflinePlayer(playerName)
         if (!offlinePlayer.hasPlayedBefore() && !offlinePlayer.isOnline) {
-            sender.sendMessage("\u00a7cPlayer '$playerName' has never played on this server.")
+            msg.sendMessage(sender, "errors.player_not_found", "player" to playerName)
             return
         }
         if (config.effectiveRequiresOnline && !offlinePlayer.isOnline) {
-            sender.sendMessage("\u00a7cPlayer '$playerName' must be online for this mail.")
+            msg.sendMessage(sender, "errors.player_must_be_online", "player" to playerName)
             return
         }
         if (config.conditions != null && !conditionEvaluator.evaluate(offlinePlayer.uniqueId, config.conditions)) {
-            sender.sendMessage("\u00a7cPlayer '$playerName' does not meet the conditions for this mail.")
+            msg.sendMessage(sender, "errors.conditions_not_met", "player" to playerName)
             return
         }
         manager.deliverMail(config.buildMail(offlinePlayer.uniqueId))
-        sender.sendMessage("\u00a7aSent complex mail '${config.id}' to $playerName.")
+        msg.sendMessage(sender, "notifications.complex_sent_to", "id" to config.id, "player" to playerName)
     }
 }

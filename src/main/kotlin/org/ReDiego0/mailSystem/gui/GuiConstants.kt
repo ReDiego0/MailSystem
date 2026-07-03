@@ -1,12 +1,15 @@
 package org.ReDiego0.mailSystem.gui
 
+import net.kyori.adventure.text.Component
+import net.kyori.adventure.text.format.NamedTextColor
 import org.bukkit.Material
 
 object GuiConstants {
 
     const val INVENTORY_SIZE = 54
-    const val TITLE = "\u00a78Mail Inbox"
     const val MAILS_PER_PAGE = 5
+
+    val TITLE_COMPONENT: Component = Component.text("Mail Inbox", NamedTextColor.DARK_GRAY)
 
     val MAIL_ICON_SLOTS = intArrayOf(0, 9, 18, 27, 36)
     val MAIL_ROW_SLOTS = arrayOf(
@@ -31,8 +34,6 @@ object GuiConstants {
     const val CLEAR_ALL_SLOT = 52
     const val CLOSE_SLOT = 53
 
-    val ALL_GUI_SLOTS = (0 until INVENTORY_SIZE).toList()
-
     val FILLER_SLOTS: Set<Int> by lazy {
         val occupied = mutableSetOf<Int>()
         occupied.addAll(MAIL_ICON_SLOTS.toList())
@@ -45,5 +46,4 @@ object GuiConstants {
     }
 
     val FILLER_MATERIAL = Material.BLACK_STAINED_GLASS_PANE
-    val DIVIDER_MATERIAL = Material.GRAY_STAINED_GLASS_PANE
 }

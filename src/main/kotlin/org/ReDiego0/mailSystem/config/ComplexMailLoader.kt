@@ -12,7 +12,8 @@ class ComplexMailLoader(private val plugin: JavaPlugin) {
     fun load() {
         val file = File(plugin.dataFolder, "complex_mails.yml")
         if (!file.exists()) {
-            plugin.saveResource("complex_mails.yml", false)
+            plugin.dataFolder.mkdirs()
+            generateDefault(file)
         }
 
         val yaml = YamlConfiguration.loadConfiguration(file)
@@ -91,6 +92,35 @@ class ComplexMailLoader(private val plugin: JavaPlugin) {
         if (papi.isEmpty() && permissions.isEmpty()) return null
 
         return ComplexMailConditions(logic, papi, permissions)
+    }
+
+    private fun generateDefault(file: File) {
+        val yaml = YamlConfiguration()
+
+        yaml.set("complex_mails.welcome.sender_name", "Welcome Committee")
+        yaml.set("complex_mails.welcome.sender_icon", "default")
+        yaml.set("complex_mails.welcome.title", "Welcome to the server!")
+        yaml.set("complex_mails.welcome.body", listOf("Welcome to our server!", "Enjoy your stay."))
+        yaml.set("complex_mails.welcome.ttl_days", 30)
+        yaml.set("complex_mails.welcome.requires_online", false)
+        yaml.set("complex_mails.welcome.rewards.physical", listOf(
+            mapOf("material" to "DIAMOND", "amount" to 5)
+        ))
+        yaml.set("complex_mails.welcome.rewards.commands", listOf(
+            mapOf("command" to "give %player% iron_ingot 10", "display_name" to "§fIron Ingot ×10", "display_material" to "IRON_INGOT")
+        ))
+
+        yaml.set("complex_mails.maintenance.sender_name", "Server")
+        yaml.set("complex_mails.maintenance.sender_icon", "BARRIER")
+        yaml.set("complex_mails.maintenance.title", "Server Maintenance")
+        yaml.set("complex_mails.maintenance.body", listOf("The server will undergo maintenance."))
+        yaml.set("complex_mails.maintenance.ttl_days", 1)
+        yaml.set("complex_mails.maintenance.requires_online", true)
+        yaml.set("complex_mails.maintenance.rewards.physical", emptyList<Map<String, Any>>())
+        yaml.set("complex_mails.maintenance.rewards.commands", emptyList<Map<String, Any>>())
+
+        yaml.save(file)
+        plugin.logger.info("Generated default complex_mails.yml")
     }
 
     fun getConfig(id: String): ComplexMailConfig? = configs[id]
