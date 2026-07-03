@@ -28,4 +28,9 @@ interface MailStorage {
     fun markRewardClaimed(rewardId: Int): CompletableFuture<Boolean>
 
     fun getAllProfileUUIDs(): CompletableFuture<List<UUID>>
+
+    fun getMailCount(playerUUID: UUID): CompletableFuture<Int>
+    fun getQueuedMails(playerUUID: UUID): CompletableFuture<List<Mail>>
+    fun promoteOldestQueued(playerUUID: UUID): CompletableFuture<Boolean>
+    fun getExpiredPlayerUUIDs(): CompletableFuture<List<UUID>>
 }

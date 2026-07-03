@@ -19,7 +19,8 @@ import java.util.concurrent.ExecutorService
 class SimpleMailManager(
     private val storage: MailStorage,
     private val executor: ExecutorService,
-    private val plugin: JavaPlugin
+    private val plugin: JavaPlugin,
+    private val inboxCapacity: Int = 50
 ) : MailManager {
 
     private val api = SimpleMailApi(this)
@@ -27,14 +28,22 @@ class SimpleMailManager(
     // ── Public API ───────────────────────────────────────────────────────
 
     override fun deliverMail(mail: Mail): CompletableFuture<Void> {
-        val future = storage.saveMail(mail)
-        future.thenRunAsync({
+        val future = CompletableFuture.supplyAsync({
+            val currentCount = storage.getMailCount(mail.recipientUUID).join()
+            val shouldBeQueued = currentCount >= inboxCapacity
+            val mailToSave = mail.copy(queued = shouldBeQueued)
+            storage.saveMail(mailToSave).join()
+            shouldBeQueued
+        }, executor)
+
+        future.thenAcceptAsync({ wasQueued ->
             val recipient = Bukkit.getPlayer(mail.recipientUUID)
-            if (recipient != null && recipient.isOnline) {
+            if (recipient != null && recipient.isOnline && !wasQueued) {
                 notifyNewMail(recipient)
             }
         }, executor)
-        return future
+
+        return future.thenApply { null }
     }
 
     override fun claimRewards(mailId: UUID, player: Player): CompletableFuture<ClaimResult> =
@@ -86,14 +95,31 @@ class SimpleMailManager(
         CompletableFuture.supplyAsync({
             val mail = storage.getMail(mailId).join() ?: return@supplyAsync false
             if (mail.recipientUUID != playerUUID) return@supplyAsync false
-            storage.deleteMail(mailId).join()
+            val deleted = storage.deleteMail(mailId).join()
+            if (deleted) {
+                promoteQueuedIfNeeded(playerUUID)
+            }
+            deleted
         }, executor)
 
     override fun deleteAllRead(playerUUID: UUID): CompletableFuture<Int> =
-        storage.deleteAllRead(playerUUID)
+        CompletableFuture.supplyAsync({
+            val count = storage.deleteAllRead(playerUUID).join()
+            if (count > 0) {
+                promoteQueuedIfNeeded(playerUUID)
+            }
+            count
+        }, executor)
 
     override fun expireOldMails(): CompletableFuture<Int> =
-        storage.expireOldMails()
+        CompletableFuture.supplyAsync({
+            val affectedPlayers = storage.getExpiredPlayerUUIDs().join()
+            val count = storage.expireOldMails().join()
+            for (uuid in affectedPlayers) {
+                promoteQueuedIfNeeded(uuid)
+            }
+            count
+        }, executor)
 
     override fun loadProfile(playerUUID: UUID): CompletableFuture<MailProfile> =
         CompletableFuture.supplyAsync({
@@ -121,6 +147,19 @@ class SimpleMailManager(
     fun getStorage(): MailStorage = storage
 
     // ── Internal ─────────────────────────────────────────────────────────
+
+    private fun promoteQueuedIfNeeded(playerUUID: UUID) {
+        val currentCount = storage.getMailCount(playerUUID).join()
+        if (currentCount < inboxCapacity) {
+            val promoted = storage.promoteOldestQueued(playerUUID).join()
+            if (promoted) {
+                val recipient = Bukkit.getPlayer(playerUUID)
+                if (recipient != null && recipient.isOnline) {
+                    notifyNewMail(recipient)
+                }
+            }
+        }
+    }
 
     private fun notifyNewMail(player: Player) {
         player.sendMessage("§eYou have new mail! Open your inbox with §6/mail")

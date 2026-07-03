@@ -39,5 +39,6 @@ data class Mail(
     val createdAt: Long,
     val expiresAt: Long,
     val status: MailStatus,
-    val source: MailSource
+    val source: MailSource,
+    val queued: Boolean = false
 )

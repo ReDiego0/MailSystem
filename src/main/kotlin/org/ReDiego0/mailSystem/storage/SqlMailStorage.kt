@@ -184,6 +184,75 @@ class SqlMailStorage(
             }
         }, executor)
 
+    // ── Queue ────────────────────────────────────────────────────────────
+
+    override fun getMailCount(playerUUID: UUID): CompletableFuture<Int> =
+        CompletableFuture.supplyAsync({
+            withConnection { conn ->
+                conn.prepareStatement("SELECT COUNT(*) FROM mails WHERE recipient_uuid = ? AND queued = 0").use { stmt ->
+                    stmt.setString(1, playerUUID.toString())
+                    val rs = stmt.executeQuery()
+                    if (rs.next()) rs.getInt(1) else 0
+                }
+            }
+        }, executor)
+
+    override fun getQueuedMails(playerUUID: UUID): CompletableFuture<List<Mail>> =
+        CompletableFuture.supplyAsync({
+            withConnection { conn ->
+                conn.prepareStatement("SELECT * FROM mails WHERE recipient_uuid = ? AND queued = 1 ORDER BY created_at ASC").use { stmt ->
+                    stmt.setString(1, playerUUID.toString())
+                    val rs = stmt.executeQuery()
+                    val mails = mutableListOf<Mail>()
+                    while (rs.next()) {
+                        val mailId = UUID.fromString(rs.getString("id"))
+                        mails.add(Mail(
+                            id = mailId,
+                            recipientUUID = playerUUID,
+                            senderName = rs.getString("sender_name"),
+                            senderIcon = ItemSerializer.deserialize(rs.getString("sender_icon")),
+                            title = rs.getString("title"),
+                            body = deserializeStringList(rs.getString("body")),
+                            rewards = conn.loadRewardsFor(mailId),
+                            createdAt = rs.getLong("created_at"),
+                            expiresAt = rs.getLong("expires_at"),
+                            status = MailStatus.valueOf(rs.getString("status")),
+                            source = MailSource.fromStorageString(rs.getString("source")),
+                            queued = true
+                        ))
+                    }
+                    mails
+                }
+            }
+        }, executor)
+
+    override fun promoteOldestQueued(playerUUID: UUID): CompletableFuture<Boolean> =
+        CompletableFuture.supplyAsync({
+            withConnection { conn ->
+                conn.prepareStatement(
+                    "UPDATE mails SET queued = 0 WHERE id = (SELECT id FROM mails WHERE recipient_uuid = ? AND queued = 1 ORDER BY created_at ASC LIMIT 1)"
+                ).use { stmt ->
+                    stmt.setString(1, playerUUID.toString())
+                    stmt.executeUpdate() > 0
+                }
+            }
+        }, executor)
+
+    override fun getExpiredPlayerUUIDs(): CompletableFuture<List<UUID>> =
+        CompletableFuture.supplyAsync({
+            withConnection { conn ->
+                conn.prepareStatement("SELECT DISTINCT recipient_uuid FROM mails WHERE expires_at < ?").use { stmt ->
+                    stmt.setLong(1, System.currentTimeMillis())
+                    val rs = stmt.executeQuery()
+                    val uuids = mutableListOf<UUID>()
+                    while (rs.next()) {
+                        uuids.add(UUID.fromString(rs.getString("recipient_uuid")))
+                    }
+                    uuids
+                }
+            }
+        }, executor)
+
     // ── Internal: DataSource & Schema ────────────────────────────────────
 
     private fun createDataSource(): HikariDataSource {
@@ -229,7 +298,8 @@ class SqlMailStorage(
                         status         VARCHAR(10) NOT NULL DEFAULT 'UNREAD',
                         source         VARCHAR(50) NOT NULL,
                         created_at     BIGINT NOT NULL,
-                        expires_at     BIGINT NOT NULL
+                        expires_at     BIGINT NOT NULL,
+                        queued         TINYINT NOT NULL DEFAULT 0
                     )"""
                 )
                 stmt.execute(
@@ -260,8 +330,8 @@ class SqlMailStorage(
 
     private fun Connection.insertMail(mail: Mail) {
         prepareStatement(
-            """INSERT INTO mails (id, recipient_uuid, sender_name, sender_icon, title, body, status, source, created_at, expires_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"""
+            """INSERT INTO mails (id, recipient_uuid, sender_name, sender_icon, title, body, status, source, created_at, expires_at, queued)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"""
         ).use { stmt ->
             stmt.setString(1, mail.id.toString())
             stmt.setString(2, mail.recipientUUID.toString())
@@ -273,6 +343,7 @@ class SqlMailStorage(
             stmt.setString(8, mail.source.toStorageString())
             stmt.setLong(9, mail.createdAt)
             stmt.setLong(10, mail.expiresAt)
+            stmt.setInt(11, if (mail.queued) 1 else 0)
             stmt.executeUpdate()
         }
     }
@@ -324,7 +395,7 @@ class SqlMailStorage(
 
     private fun Connection.loadMailsFor(playerUUID: UUID): List<Mail> {
         prepareStatement(
-            "SELECT * FROM mails WHERE recipient_uuid = ? ORDER BY created_at DESC"
+            "SELECT * FROM mails WHERE recipient_uuid = ? AND queued = 0 ORDER BY created_at DESC"
         ).use { stmt ->
             stmt.setString(1, playerUUID.toString())
             val rs = stmt.executeQuery()
@@ -343,7 +414,8 @@ class SqlMailStorage(
                         createdAt = rs.getLong("created_at"),
                         expiresAt = rs.getLong("expires_at"),
                         status = MailStatus.valueOf(rs.getString("status")),
-                        source = MailSource.fromStorageString(rs.getString("source"))
+                        source = MailSource.fromStorageString(rs.getString("source")),
+                        queued = rs.getInt("queued") == 1
                     )
                 )
             }
@@ -368,7 +440,8 @@ class SqlMailStorage(
                     createdAt = rs.getLong("created_at"),
                     expiresAt = rs.getLong("expires_at"),
                     status = MailStatus.valueOf(rs.getString("status")),
-                    source = MailSource.fromStorageString(rs.getString("source"))
+                    source = MailSource.fromStorageString(rs.getString("source")),
+                    queued = rs.getInt("queued") == 1
                 )
             } else null
         }

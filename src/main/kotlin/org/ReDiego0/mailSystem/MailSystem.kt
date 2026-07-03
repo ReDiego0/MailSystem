@@ -8,6 +8,7 @@ import org.ReDiego0.mailSystem.config.MessageManager
 import org.ReDiego0.mailSystem.config.SimpleMailTemplate
 import org.ReDiego0.mailSystem.gui.MailGui
 import org.ReDiego0.mailSystem.gui.MailGuiListener
+import org.ReDiego0.mailSystem.maintenance.ExpirationTask
 import org.ReDiego0.mailSystem.manager.MailManager
 import org.ReDiego0.mailSystem.manager.SimpleMailManager
 import org.ReDiego0.mailSystem.storage.MailStorage
@@ -34,9 +35,12 @@ class MailSystem : JavaPlugin() {
         messageManager.load()
 
         val storageConfig = StorageConfig.fromConfig(config)
+        val inboxCapacity = config.getInt("maintenance.inbox_capacity", 50)
+        val expirationHours = config.getLong("maintenance.expiration_interval_hours", 6)
+
         executor = Executors.newFixedThreadPool(4)
         storage = SqlMailStorage(storageConfig, executor, this)
-        manager = SimpleMailManager(storage, executor, this)
+        manager = SimpleMailManager(storage, executor, this, inboxCapacity)
 
         storage.initialize().thenRun {
             logger.info("MailSystem storage ready")
@@ -55,6 +59,8 @@ class MailSystem : JavaPlugin() {
         complexMailLoader.load()
         val conditionEvaluator = ConditionEvaluator(this)
         getCommand("mail")?.setExecutor(MailCommand(this, manager, gui, template, complexMailLoader, conditionEvaluator, messageManager))
+
+        ExpirationTask(this, manager, expirationHours).start()
 
         instance = this
         _manager = manager
@@ -87,6 +93,8 @@ class MailSystem : JavaPlugin() {
         yaml.set("storage.mysql.username", "root")
         yaml.set("storage.mysql.password", "")
         yaml.set("storage.mysql.pool_size", 10)
+        yaml.set("maintenance.expiration_interval_hours", 6)
+        yaml.set("maintenance.inbox_capacity", 50)
         yaml.save(configFile)
         logger.info("Generated default config.yml")
     }
