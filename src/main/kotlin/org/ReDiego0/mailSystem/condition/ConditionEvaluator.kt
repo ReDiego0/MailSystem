@@ -23,25 +23,25 @@ class ConditionEvaluator(private val plugin: JavaPlugin) {
         if (!conditions.hasConditions()) return true
 
         val player = Bukkit.getPlayer(uuid)
-        val isOnline = player != null && player.isOnline
+        val onlinePlayer = if (player != null && player.isOnline) player else null
 
         val results = mutableListOf<Boolean>()
 
         if (conditions.papi.isNotEmpty()) {
-            if (!isOnline) {
+            if (onlinePlayer == null) {
                 plugin.logger.warning("Cannot evaluate PAPI conditions for offline player $uuid, skipping PAPI")
                 results.add(false)
             } else if (!papiAvailable) {
                 plugin.logger.warning("PAPI conditions defined but PlaceholderAPI not available")
                 results.add(false)
             } else {
-                results.add(evaluatePapiConditions(player!!, conditions.papi))
+                results.add(evaluatePapiConditions(onlinePlayer, conditions.papi))
             }
         }
 
         if (conditions.permissions.isNotEmpty()) {
-            if (isOnline) {
-                results.add(evaluateBukkitPermissions(player!!, conditions.permissions))
+            if (onlinePlayer != null) {
+                results.add(evaluateBukkitPermissions(onlinePlayer, conditions.permissions))
             } else if (luckPermsAvailable) {
                 results.add(evaluateLuckPermsPermissions(uuid, conditions.permissions))
             } else {

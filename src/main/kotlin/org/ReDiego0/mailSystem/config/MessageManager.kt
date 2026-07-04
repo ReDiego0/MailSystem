@@ -3,7 +3,6 @@ package org.ReDiego0.mailSystem.config
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer
-import org.bukkit.Sound
 import org.bukkit.command.CommandSender
 import org.bukkit.configuration.file.YamlConfiguration
 import org.bukkit.entity.Player
@@ -47,12 +46,7 @@ class MessageManager(private val plugin: JavaPlugin) {
 
     fun playSound(player: Player, path: String) {
         val soundName = config.getString("sounds.$path") ?: return
-        try {
-            val sound = Sound.valueOf(soundName)
-            player.playSound(player.location, sound, 1f, 1f)
-        } catch (_: IllegalArgumentException) {
-            plugin.logger.warning("Invalid sound in messages.yml: $soundName")
-        }
+        player.playSound(player.location, soundName, 1f, 1f)
     }
 
     private fun generateDefault(file: File) {
