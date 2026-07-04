@@ -50,6 +50,9 @@ class MailSystem : JavaPlugin() {
             null
         }
 
+        val auditLogger = AuditLogger(this)
+        manager = SimpleMailManager(storage, executor, this, inboxCapacity, auditLogger)
+
         server.servicesManager.register(MailApi::class.java, manager.getApi(), this, ServicePriority.Normal)
 
         gui = MailGui(this, manager, messageManager)
@@ -59,8 +62,6 @@ class MailSystem : JavaPlugin() {
         val complexMailLoader = ComplexMailLoader(this)
         complexMailLoader.load()
         val conditionEvaluator = ConditionEvaluator(this)
-        val auditLogger = AuditLogger(this)
-        manager = SimpleMailManager(storage, executor, this, inboxCapacity, auditLogger)
 
         getCommand("mail")?.setExecutor(MailCommand(this, manager, gui, template, complexMailLoader, conditionEvaluator, messageManager, auditLogger))
         getCommand("mail")?.tabCompleter = MailTabCompleter(complexMailLoader)

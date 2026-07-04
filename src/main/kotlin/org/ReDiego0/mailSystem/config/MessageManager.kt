@@ -23,7 +23,7 @@ class MessageManager(private val plugin: JavaPlugin) {
     }
 
     fun get(path: String, vararg placeholders: Pair<String, Any>): Component {
-        val raw = config.getString(path) ?: return Component.text(path, NamedTextColor.RED)
+        val raw = config.getString("messages.$path") ?: return Component.text(path, NamedTextColor.RED)
         var processed = raw
         for ((key, value) in placeholders) {
             processed = processed.replace("%$key%", value.toString())
@@ -32,7 +32,7 @@ class MessageManager(private val plugin: JavaPlugin) {
     }
 
     fun getRaw(path: String, vararg placeholders: Pair<String, Any>): String {
-        val raw = config.getString(path) ?: return path
+        val raw = config.getString("messages.$path") ?: return path
         var processed = raw
         for ((key, value) in placeholders) {
             processed = processed.replace("%$key%", value.toString())
@@ -46,7 +46,12 @@ class MessageManager(private val plugin: JavaPlugin) {
 
     fun playSound(player: Player, path: String) {
         val soundName = config.getString("sounds.$path") ?: return
-        player.playSound(player.location, soundName, 1f, 1f)
+        player.playSound(player.location, convertSoundName(soundName), 1f, 1f)
+    }
+
+    private fun convertSoundName(name: String): String {
+        if (name.contains(":")) return name
+        return "minecraft:" + name.lowercase().replace("_", ".")
     }
 
     private fun generateDefault(file: File) {
@@ -127,13 +132,13 @@ class MessageManager(private val plugin: JavaPlugin) {
         yaml.set("messages.notifications.purge_confirm", "&cAre you sure? Type /mail purge %player% again within 3 seconds to confirm.")
         yaml.set("messages.notifications.purge_success", "&aPurged all mails for %player% (%count% mail(s) deleted).")
 
-        yaml.set("sounds.open_gui", "BLOCK_CHEST_OPEN")
-        yaml.set("sounds.turn_page", "ITEM_BOOK_PAGE_TURN")
-        yaml.set("sounds.select_mail", "ITEM_BOOK_PAGE_TURN")
-        yaml.set("sounds.claim_success", "ENTITY_PLAYER_LEVELUP")
-        yaml.set("sounds.claim_error", "ENTITY_VILLAGER_NO")
-        yaml.set("sounds.delete_mail", "BLOCK_ANVIL_BREAK")
-        yaml.set("sounds.close_gui", "BLOCK_CHEST_CLOSE")
+        yaml.set("sounds.open_gui", "minecraft:block.chest.open")
+        yaml.set("sounds.turn_page", "minecraft:item.book.page_turn")
+        yaml.set("sounds.select_mail", "minecraft:item.book.page_turn")
+        yaml.set("sounds.claim_success", "minecraft:entity.player.levelup")
+        yaml.set("sounds.claim_error", "minecraft:entity.villager.no")
+        yaml.set("sounds.delete_mail", "minecraft:block.anvil.break")
+        yaml.set("sounds.close_gui", "minecraft:block.chest.close")
 
         yaml.save(file)
         plugin.logger.info("Generated default messages.yml")

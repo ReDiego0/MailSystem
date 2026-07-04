@@ -24,6 +24,7 @@ object GuiConstants {
 
     val TEXT_SLOTS = intArrayOf(14, 15, 16, 23, 24, 25)
     val REWARD_SLOTS = intArrayOf(31, 32, 33, 34, 35, 40, 41, 42, 43, 44)
+    val ZONE_B_EMPTY_SLOTS = intArrayOf(5, 6, 7, 8, 13, 17, 22, 26)
 
     const val PREV_PAGE_SLOT = 45
     const val NEXT_PAGE_SLOT = 46
@@ -41,6 +42,7 @@ object GuiConstants {
         occupied.add(SENDER_SLOT)
         occupied.addAll(TEXT_SLOTS.toList())
         occupied.addAll(REWARD_SLOTS.toList())
+        occupied.addAll(ZONE_B_EMPTY_SLOTS.toList())
         occupied.addAll(intArrayOf(PREV_PAGE_SLOT, NEXT_PAGE_SLOT, PAGE_INDICATOR_SLOT, REFRESH_SLOT, CLAIM_SLOT, DELETE_SLOT, CLEAR_ALL_SLOT, CLOSE_SLOT).toList())
         (0 until INVENTORY_SIZE).filter { it !in occupied }.toSet()
     }

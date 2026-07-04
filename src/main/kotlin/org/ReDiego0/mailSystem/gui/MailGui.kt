@@ -7,6 +7,7 @@ import net.kyori.adventure.text.format.TextDecoration
 import org.ReDiego0.mailSystem.config.MessageManager
 import org.ReDiego0.mailSystem.manager.ClaimResult
 import org.ReDiego0.mailSystem.manager.MailManager
+import org.ReDiego0.mailSystem.manager.SimpleMailManager
 import org.ReDiego0.mailSystem.model.Mail
 import org.ReDiego0.mailSystem.model.MailStatus
 import org.ReDiego0.mailSystem.reward.CommandReward
@@ -110,13 +111,17 @@ class MailGui(
         val pageMails = state.pageMails
         for (i in GuiConstants.MAIL_ICON_SLOTS.indices) {
             val rowSlots = GuiConstants.MAIL_ROW_SLOTS[i]
-            for (s in rowSlots) {
-                inventory.setItem(s, createFillerItem())
-            }
 
             if (i < pageMails.size) {
                 val mail = pageMails[i]
-                inventory.setItem(GuiConstants.MAIL_ICON_SLOTS[i], createMailIcon(mail, mail.id == state.selectedMailId))
+                val icon = createMailIcon(mail, mail.id == state.selectedMailId)
+                for (s in rowSlots) {
+                    inventory.setItem(s, icon)
+                }
+            } else {
+                for (s in rowSlots) {
+                    inventory.setItem(s, createFillerItem())
+                }
             }
         }
     }
@@ -162,19 +167,24 @@ class MailGui(
 
     private fun fillContentViewer(inventory: Inventory, state: GuiState) {
         val mail = state.selectedMail
+        val noMailComponent = msg.get("gui.no_mail_selected")
 
-        inventory.setItem(GuiConstants.SENDER_SLOT, if (mail != null) createSenderHead(mail) else createEmptySlot(Material.LIGHT_GRAY_STAINED_GLASS_PANE, msg.get("gui.no_mail_selected")))
+        inventory.setItem(GuiConstants.SENDER_SLOT, if (mail != null) createSenderHead(mail) else createEmptySlot(Material.LIGHT_GRAY_STAINED_GLASS_PANE, noMailComponent))
 
         for (slot in GuiConstants.TEXT_SLOTS) {
-            inventory.setItem(slot, if (mail != null) createTextItem(mail) else createEmptySlot(Material.LIGHT_GRAY_STAINED_GLASS_PANE, msg.get("gui.empty_slot")))
+            inventory.setItem(slot, if (mail != null) createTextItem(mail) else createEmptySlot(Material.LIGHT_GRAY_STAINED_GLASS_PANE, noMailComponent))
         }
 
         for ((index, slot) in GuiConstants.REWARD_SLOTS.withIndex()) {
             inventory.setItem(slot, if (mail != null && index < mail.rewards.size) {
                 createRewardItem(mail.rewards[index])
             } else {
-                createEmptySlot(Material.LIGHT_GRAY_STAINED_GLASS_PANE, msg.get("gui.empty_slot"))
+                createEmptySlot(Material.LIGHT_GRAY_STAINED_GLASS_PANE, noMailComponent)
             })
+        }
+
+        for (slot in GuiConstants.ZONE_B_EMPTY_SLOTS) {
+            inventory.setItem(slot, createEmptySlot(Material.LIGHT_GRAY_STAINED_GLASS_PANE, noMailComponent))
         }
     }
 
@@ -363,7 +373,16 @@ class MailGui(
         val pageMails = state.pageMails
         if (index >= pageMails.size) return
 
-        state.selectMail(pageMails[index].id)
+        val mail = pageMails[index]
+
+        if (mail.status == MailStatus.UNREAD) {
+            state.mails = state.mails.map {
+                if (it.id == mail.id) it.copy(status = MailStatus.READ) else it
+            }
+            (manager as SimpleMailManager).getStorage().updateMailStatus(mail.id, MailStatus.READ)
+        }
+
+        state.selectMail(mail.id)
         deleteConfirmations.remove(player.uniqueId)
 
         val topInventory = player.openInventory.topInventory

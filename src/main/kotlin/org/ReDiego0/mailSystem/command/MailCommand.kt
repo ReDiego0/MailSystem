@@ -12,10 +12,12 @@ import org.ReDiego0.mailSystem.manager.MailManager
 import org.ReDiego0.mailSystem.manager.SimpleMailManager
 import org.ReDiego0.mailSystem.model.MailSource
 import org.bukkit.Bukkit
+import org.bukkit.Material
 import org.bukkit.command.Command
 import org.bukkit.command.CommandExecutor
 import org.bukkit.command.CommandSender
 import org.bukkit.entity.Player
+import org.bukkit.inventory.ItemStack
 import org.bukkit.plugin.java.JavaPlugin
 import java.util.concurrent.Executor
 
@@ -67,7 +69,36 @@ class MailCommand(
         }
 
         val target = args[1]
-        val message = args.drop(2).joinToString(" ")
+        val physicalRewards = mutableListOf<Pair<String, Int>>()
+        val commandRewards = mutableListOf<String>()
+        val messageParts = mutableListOf<String>()
+
+        var i = 2
+        while (i < args.size) {
+            when (args[i]) {
+                "--reward" -> {
+                    if (i + 1 < args.size) {
+                        val parts = args[i + 1].split(":")
+                        val material = parts[0].uppercase()
+                        val amount = if (parts.size > 1) parts[1].toIntOrNull() ?: 1 else 1
+                        physicalRewards.add(material to amount)
+                        i += 2
+                    } else { i++ }
+                }
+                "--reward-cmd" -> {
+                    if (i + 1 < args.size) {
+                        commandRewards.add(args[i + 1])
+                        i += 2
+                    } else { i++ }
+                }
+                else -> {
+                    messageParts.add(args[i])
+                    i++
+                }
+            }
+        }
+
+        val message = messageParts.joinToString(" ")
         val parts = message.split("|")
         val title = parts[0]
         val body = parts.drop(1)
@@ -78,57 +109,80 @@ class MailCommand(
         }
 
         when (target) {
-            "*" -> sendSimpleToAll(sender, title, body)
-            "@online" -> sendSimpleToOnline(sender, title, body)
-            else -> sendSimpleToPlayer(sender, target, title, body)
+            "*" -> sendSimpleToAll(sender, title, body, physicalRewards, commandRewards)
+            "@online" -> sendSimpleToOnline(sender, title, body, physicalRewards, commandRewards)
+            else -> sendSimpleToPlayer(sender, target, title, body, physicalRewards, commandRewards)
         }
     }
 
-    private fun sendSimpleToAll(sender: CommandSender, title: String, body: List<String>) {
+    private fun buildRewards(
+        physical: List<Pair<String, Int>>,
+        commands: List<String>,
+        builder: MailBuilder
+    ): MailBuilder {
+        for ((materialName, amount) in physical) {
+            val material = try { Material.valueOf(materialName) } catch (_: IllegalArgumentException) { continue }
+            builder.addPhysicalReward(ItemStack(material, amount))
+        }
+        for (command in commands) {
+            val displayItem = ItemStack(Material.PAPER)
+            val meta = displayItem.itemMeta
+            meta?.displayName(net.kyori.adventure.text.Component.text("Command Reward", net.kyori.adventure.text.format.NamedTextColor.GOLD))
+            meta?.lore(listOf(net.kyori.adventure.text.Component.text(command, net.kyori.adventure.text.format.NamedTextColor.GRAY)))
+            displayItem.itemMeta = meta
+            builder.addCommandReward(displayItem, listOf(command))
+        }
+        return builder
+    }
+
+    private fun sendSimpleToAll(
+        sender: CommandSender, title: String, body: List<String>,
+        physical: List<Pair<String, Int>>, commands: List<String>
+    ) {
         manager.getAllProfileUUIDs().thenAcceptAsync({ uuids ->
             for (uuid in uuids) {
-                val mail = MailBuilder()
+                val builder = MailBuilder()
                     .sender(template.senderName, template.createSenderIcon())
-                    .title(title)
-                    .body(body)
-                    .ttl(template.ttlDays)
+                    .title(title).body(body).ttl(template.ttlDays)
                     .source(MailSource.Config)
-                    .build(uuid)
-                manager.deliverMail(mail)
+                buildRewards(physical, commands, builder)
+                manager.deliverMail(builder.build(uuid))
             }
             msg.sendMessage(sender, "notifications.mail_sent", "count" to uuids.size.toString())
         }, mainExecutor)
     }
 
-    private fun sendSimpleToOnline(sender: CommandSender, title: String, body: List<String>) {
+    private fun sendSimpleToOnline(
+        sender: CommandSender, title: String, body: List<String>,
+        physical: List<Pair<String, Int>>, commands: List<String>
+    ) {
         val onlinePlayers = Bukkit.getOnlinePlayers()
         for (player in onlinePlayers) {
-            val mail = MailBuilder()
+            val builder = MailBuilder()
                 .sender(template.senderName, template.createSenderIcon())
-                .title(title)
-                .body(body)
-                .ttl(template.ttlDays)
+                .title(title).body(body).ttl(template.ttlDays)
                 .source(MailSource.Config)
-                .build(player.uniqueId)
-            manager.deliverMail(mail)
+            buildRewards(physical, commands, builder)
+            manager.deliverMail(builder.build(player.uniqueId))
         }
         msg.sendMessage(sender, "notifications.mail_sent", "count" to onlinePlayers.size.toString())
     }
 
-    private fun sendSimpleToPlayer(sender: CommandSender, playerName: String, title: String, body: List<String>) {
+    private fun sendSimpleToPlayer(
+        sender: CommandSender, playerName: String, title: String, body: List<String>,
+        physical: List<Pair<String, Int>>, commands: List<String>
+    ) {
         val offlinePlayer = Bukkit.getOfflinePlayer(playerName)
         if (!offlinePlayer.hasPlayedBefore() && !offlinePlayer.isOnline) {
             msg.sendMessage(sender, "errors.player_not_found", "player" to playerName)
             return
         }
-        val mail = MailBuilder()
+        val builder = MailBuilder()
             .sender(template.senderName, template.createSenderIcon())
-            .title(title)
-            .body(body)
-            .ttl(template.ttlDays)
+            .title(title).body(body).ttl(template.ttlDays)
             .source(MailSource.Config)
-            .build(offlinePlayer.uniqueId)
-        manager.deliverMail(mail)
+        buildRewards(physical, commands, builder)
+        manager.deliverMail(builder.build(offlinePlayer.uniqueId))
         msg.sendMessage(sender, "notifications.mail_sent_to", "player" to playerName)
     }
 
