@@ -2,12 +2,14 @@ package org.ReDiego0.mailSystem
 
 import org.ReDiego0.mailSystem.api.MailApi
 import org.ReDiego0.mailSystem.command.MailCommand
+import org.ReDiego0.mailSystem.command.MailTabCompleter
 import org.ReDiego0.mailSystem.condition.ConditionEvaluator
 import org.ReDiego0.mailSystem.config.ComplexMailLoader
 import org.ReDiego0.mailSystem.config.MessageManager
 import org.ReDiego0.mailSystem.config.SimpleMailTemplate
 import org.ReDiego0.mailSystem.gui.MailGui
 import org.ReDiego0.mailSystem.gui.MailGuiListener
+import org.ReDiego0.mailSystem.logging.AuditLogger
 import org.ReDiego0.mailSystem.maintenance.ExpirationTask
 import org.ReDiego0.mailSystem.manager.MailManager
 import org.ReDiego0.mailSystem.manager.SimpleMailManager
@@ -40,7 +42,6 @@ class MailSystem : JavaPlugin() {
 
         executor = Executors.newFixedThreadPool(4)
         storage = SqlMailStorage(storageConfig, executor, this)
-        manager = SimpleMailManager(storage, executor, this, inboxCapacity)
 
         storage.initialize().thenRun {
             logger.info("MailSystem storage ready")
@@ -58,7 +59,11 @@ class MailSystem : JavaPlugin() {
         val complexMailLoader = ComplexMailLoader(this)
         complexMailLoader.load()
         val conditionEvaluator = ConditionEvaluator(this)
-        getCommand("mail")?.setExecutor(MailCommand(this, manager, gui, template, complexMailLoader, conditionEvaluator, messageManager))
+        val auditLogger = AuditLogger(this)
+        manager = SimpleMailManager(storage, executor, this, inboxCapacity, auditLogger)
+
+        getCommand("mail")?.setExecutor(MailCommand(this, manager, gui, template, complexMailLoader, conditionEvaluator, messageManager, auditLogger))
+        getCommand("mail")?.tabCompleter = MailTabCompleter(complexMailLoader)
 
         ExpirationTask(this, manager, expirationHours).start()
 

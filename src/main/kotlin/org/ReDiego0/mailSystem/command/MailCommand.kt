@@ -7,7 +7,9 @@ import org.ReDiego0.mailSystem.config.ComplexMailLoader
 import org.ReDiego0.mailSystem.config.MessageManager
 import org.ReDiego0.mailSystem.config.SimpleMailTemplate
 import org.ReDiego0.mailSystem.gui.MailGui
+import org.ReDiego0.mailSystem.logging.AuditLogger
 import org.ReDiego0.mailSystem.manager.MailManager
+import org.ReDiego0.mailSystem.manager.SimpleMailManager
 import org.ReDiego0.mailSystem.model.MailSource
 import org.bukkit.Bukkit
 import org.bukkit.command.Command
@@ -24,10 +26,12 @@ class MailCommand(
     private val template: SimpleMailTemplate,
     private val complexMailLoader: ComplexMailLoader,
     private val conditionEvaluator: ConditionEvaluator,
-    private val msg: MessageManager
+    private val msg: MessageManager,
+    private val auditLogger: AuditLogger
 ) : CommandExecutor {
 
     private val mainExecutor = Executor { Bukkit.getScheduler().runTask(plugin, it) }
+    private val purgeConfirmations = HashMap<String, Long>()
 
     override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<String>): Boolean {
         if (args.isEmpty()) {
@@ -42,6 +46,7 @@ class MailCommand(
         when (args[0].lowercase()) {
             "send" -> handleSend(sender, args)
             "sendcomplex" -> handleSendComplex(sender, args)
+            "purge" -> handlePurge(sender, args)
             else -> msg.sendMessage(sender, "errors.unknown_subcommand", "subcommand" to args[0])
         }
 
@@ -207,5 +212,46 @@ class MailCommand(
         }
         manager.deliverMail(config.buildMail(offlinePlayer.uniqueId))
         msg.sendMessage(sender, "notifications.complex_sent_to", "id" to config.id, "player" to playerName)
+    }
+
+    // ── Purge ────────────────────────────────────────────────────────────
+
+    private fun handlePurge(sender: CommandSender, args: Array<String>) {
+        if (!sender.hasPermission("mailsystem.command.purge")) {
+            msg.sendMessage(sender, "errors.no_permission_purge")
+            return
+        }
+
+        if (args.size < 2) {
+            msg.sendMessage(sender, "errors.usage_purge")
+            return
+        }
+
+        val playerName = args[1]
+        val offlinePlayer = Bukkit.getOfflinePlayer(playerName)
+
+        if (!offlinePlayer.hasPlayedBefore() && !offlinePlayer.isOnline) {
+            msg.sendMessage(sender, "errors.player_not_found", "player" to playerName)
+            return
+        }
+
+        val lastClick = purgeConfirmations[sender.name] ?: 0
+        val now = System.currentTimeMillis()
+
+        if (now - lastClick > 3000) {
+            purgeConfirmations[sender.name] = now
+            msg.sendMessage(sender, "notifications.purge_confirm", "player" to playerName)
+        } else {
+            purgeConfirmations.remove(sender.name)
+            val storage = (manager as SimpleMailManager).getStorage()
+            storage.deleteAllMails(offlinePlayer.uniqueId).thenAcceptAsync({ count ->
+                if (count > 0) {
+                    auditLogger.logPurge(sender.name, playerName, count)
+                    msg.sendMessage(sender, "notifications.purge_success", "player" to playerName, "count" to count.toString())
+                } else {
+                    msg.sendMessage(sender, "errors.no_mails_to_purge", "player" to playerName)
+                }
+            }, mainExecutor)
+        }
     }
 }

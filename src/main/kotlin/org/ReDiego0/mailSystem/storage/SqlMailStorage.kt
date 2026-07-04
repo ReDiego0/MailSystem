@@ -49,10 +49,15 @@ class SqlMailStorage(
     override fun saveProfile(profile: MailProfile): CompletableFuture<Void> =
         CompletableFuture.runAsync({
             withConnection { conn ->
-                conn.prepareStatement(
+                val sql = if (config.isSqlite) {
                     """INSERT OR REPLACE INTO profiles (player_uuid, player_name, max_capacity, last_accessed)
                        VALUES (?, ?, ?, ?)"""
-                ).use { stmt ->
+                } else {
+                    """INSERT INTO profiles (player_uuid, player_name, max_capacity, last_accessed)
+                       VALUES (?, ?, ?, ?)
+                       ON DUPLICATE KEY UPDATE player_name = VALUES(player_name), max_capacity = VALUES(max_capacity), last_accessed = VALUES(last_accessed)"""
+                }
+                conn.prepareStatement(sql).use { stmt ->
                     stmt.setString(1, profile.playerUUID.toString())
                     stmt.setString(2, profile.playerName)
                     stmt.setInt(3, profile.maxCapacity)
@@ -128,6 +133,22 @@ class SqlMailStorage(
     override fun expireOldMails(): CompletableFuture<Int> =
         CompletableFuture.supplyAsync({
             withConnection { conn ->
+                val expiredWithRewards = conn.prepareStatement(
+                    "SELECT m.id, m.recipient_uuid, m.title FROM mails m INNER JOIN rewards r ON m.id = r.mail_id WHERE m.expires_at < ? GROUP BY m.id"
+                ).use { stmt ->
+                    stmt.setLong(1, System.currentTimeMillis())
+                    val rs = stmt.executeQuery()
+                    val results = mutableListOf<Triple<String, String, String>>()
+                    while (rs.next()) {
+                        results.add(Triple(rs.getString("id"), rs.getString("recipient_uuid"), rs.getString("title")))
+                    }
+                    results
+                }
+
+                for ((mailId, uuid, title) in expiredWithRewards) {
+                    plugin.logger.info("Expiring mail $mailId ($title) for $uuid with unclaimed rewards")
+                }
+
                 conn.prepareStatement("DELETE FROM mails WHERE expires_at < ?").use { stmt ->
                     stmt.setLong(1, System.currentTimeMillis())
                     stmt.executeUpdate()
@@ -160,12 +181,12 @@ class SqlMailStorage(
             withConnection { conn -> conn.loadRewardsFor(mailId) }
         }, executor)
 
-    override fun markRewardClaimed(rewardId: Int): CompletableFuture<Boolean> =
+    override fun deleteAllMails(playerUUID: UUID): CompletableFuture<Int> =
         CompletableFuture.supplyAsync({
             withConnection { conn ->
-                conn.prepareStatement("UPDATE rewards SET claimed = 1 WHERE id = ?").use { stmt ->
-                    stmt.setInt(1, rewardId)
-                    stmt.executeUpdate() > 0
+                conn.prepareStatement("DELETE FROM mails WHERE recipient_uuid = ?").use { stmt ->
+                    stmt.setString(1, playerUUID.toString())
+                    stmt.executeUpdate()
                 }
             }
         }, executor)
@@ -310,7 +331,6 @@ class SqlMailStorage(
                         display_item  TEXT NOT NULL,
                         item_data     TEXT,
                         commands      TEXT,
-                        claimed       TINYINT NOT NULL DEFAULT 0,
                         FOREIGN KEY (mail_id) REFERENCES mails(id) ON DELETE CASCADE
                     )"""
                 )
@@ -350,8 +370,8 @@ class SqlMailStorage(
 
     private fun Connection.insertRewards(mailId: UUID, rewards: List<Reward>) {
         prepareStatement(
-            """INSERT INTO rewards (mail_id, type, display_item, item_data, commands, claimed)
-               VALUES (?, ?, ?, ?, ?, 0)"""
+            """INSERT INTO rewards (mail_id, type, display_item, item_data, commands)
+               VALUES (?, ?, ?, ?, ?)"""
         ).use { stmt ->
             for (reward in rewards) {
                 stmt.setString(1, mailId.toString())

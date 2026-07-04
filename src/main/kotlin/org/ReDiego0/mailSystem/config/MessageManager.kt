@@ -126,6 +126,12 @@ class MessageManager(private val plugin: JavaPlugin) {
         yaml.set("messages.errors.usage_sendcomplex", "&cUsage: /mail sendcomplex <player|*|@online> <id>")
         yaml.set("messages.errors.title_empty", "&cTitle cannot be empty.")
         yaml.set("messages.errors.unknown_subcommand", "&cUnknown subcommand: %subcommand%")
+        yaml.set("messages.errors.usage_purge", "&cUsage: /mail purge <player>")
+        yaml.set("messages.errors.no_permission_purge", "&cYou don't have permission to purge mail.")
+        yaml.set("messages.errors.no_mails_to_purge", "&cPlayer '%player%' has no mails to purge.")
+
+        yaml.set("messages.notifications.purge_confirm", "&cAre you sure? Type /mail purge %player% again within 3 seconds to confirm.")
+        yaml.set("messages.notifications.purge_success", "&aPurged all mails for %player% (%count% mail(s) deleted).")
 
         yaml.set("sounds.open_gui", "BLOCK_CHEST_OPEN")
         yaml.set("sounds.turn_page", "ITEM_BOOK_PAGE_TURN")

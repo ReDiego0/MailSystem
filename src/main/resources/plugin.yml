@@ -7,7 +7,7 @@ softdepend: [PlaceholderAPI, LuckPerms]
 commands:
   mail:
     description: Open mail inbox or send mail
-    usage: /mail [send <player|*|@online> <title|body>]
+    usage: /mail [send|sendcomplex|purge] [args]
     permission: mailsystem.command.mail
 
 permissions:
@@ -19,4 +19,7 @@ permissions:
     default: op
   mailsystem.command.sendcomplex:
     description: Send complex mail to players
+    default: op
+  mailsystem.command.purge:
+    description: Purge all mails from a player
     default: op

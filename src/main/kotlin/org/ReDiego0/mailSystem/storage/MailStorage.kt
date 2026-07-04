@@ -25,7 +25,7 @@ interface MailStorage {
 
     fun saveRewards(mailId: UUID, rewards: List<Reward>): CompletableFuture<Void>
     fun getRewards(mailId: UUID): CompletableFuture<List<Reward>>
-    fun markRewardClaimed(rewardId: Int): CompletableFuture<Boolean>
+    fun deleteAllMails(playerUUID: UUID): CompletableFuture<Int>
 
     fun getAllProfileUUIDs(): CompletableFuture<List<UUID>>
 

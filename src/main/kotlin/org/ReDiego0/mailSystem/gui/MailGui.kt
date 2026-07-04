@@ -23,6 +23,7 @@ import org.bukkit.plugin.java.JavaPlugin
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executor
 
 class MailGui(
@@ -31,8 +32,8 @@ class MailGui(
     private val msg: MessageManager
 ) {
 
-    private val openStates = HashMap<UUID, GuiState>()
-    private val deleteConfirmations = HashMap<UUID, Long>()
+    private val openStates = ConcurrentHashMap<UUID, GuiState>()
+    private val deleteConfirmations = ConcurrentHashMap<UUID, Long>()
     private val mainExecutor = Executor { Bukkit.getScheduler().runTask(plugin, it) }
 
     fun open(player: Player) {

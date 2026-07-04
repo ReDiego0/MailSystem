@@ -107,7 +107,7 @@ class ComplexMailLoader(private val plugin: JavaPlugin) {
             mapOf("material" to "DIAMOND", "amount" to 5)
         ))
         yaml.set("complex_mails.welcome.rewards.commands", listOf(
-            mapOf("command" to "give %player% iron_ingot 10", "display_name" to "§fIron Ingot ×10", "display_material" to "IRON_INGOT")
+            mapOf("command" to "give %player% iron_ingot 10", "display_name" to "&fIron Ingot ×10", "display_material" to "IRON_INGOT")
         ))
 
         yaml.set("complex_mails.maintenance.sender_name", "Server")

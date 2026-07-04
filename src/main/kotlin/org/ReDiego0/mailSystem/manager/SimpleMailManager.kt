@@ -2,6 +2,7 @@ package org.ReDiego0.mailSystem.manager
 
 import org.ReDiego0.mailSystem.api.MailApi
 import org.ReDiego0.mailSystem.api.SimpleMailApi
+import org.ReDiego0.mailSystem.logging.AuditLogger
 import org.ReDiego0.mailSystem.model.Mail
 import org.ReDiego0.mailSystem.model.MailProfile
 import org.ReDiego0.mailSystem.model.MailStatus
@@ -20,7 +21,8 @@ class SimpleMailManager(
     private val storage: MailStorage,
     private val executor: ExecutorService,
     private val plugin: JavaPlugin,
-    private val inboxCapacity: Int = 50
+    private val inboxCapacity: Int = 50,
+    private val auditLogger: AuditLogger? = null
 ) : MailManager {
 
     private val api = SimpleMailApi(this)
@@ -88,6 +90,7 @@ class SimpleMailManager(
             }
 
             storage.updateMailStatus(mailId, MailStatus.CLAIMED).join()
+            auditLogger?.logClaim(player.name, mailId, rewards)
             ClaimResult.Success
         }, executor)
 
@@ -162,7 +165,15 @@ class SimpleMailManager(
     }
 
     private fun notifyNewMail(player: Player) {
-        player.sendMessage("§eYou have new mail! Open your inbox with §6/mail")
+        val msgManager = try {
+            org.ReDiego0.mailSystem.MailSystem.getMessageManager()
+        } catch (_: Exception) { null }
+
+        if (msgManager != null) {
+            msgManager.sendMessage(player, "notifications.new_mail")
+        } else {
+            player.sendMessage("§eYou have new mail! Open your inbox with §6/mail")
+        }
     }
 
     private fun hasInventorySpace(player: Player, rewards: List<PhysicalReward>): Boolean {

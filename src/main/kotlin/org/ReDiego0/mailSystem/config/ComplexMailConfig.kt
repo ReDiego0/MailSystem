@@ -50,7 +50,7 @@ data class ComplexMailConfig(
     }
 
     companion object {
-        private val LEGACY = LegacyComponentSerializer.legacySection()
+        private val LEGACY = LegacyComponentSerializer.legacyAmpersand()
     }
 
     private fun createSenderIcon(): ItemStack {
