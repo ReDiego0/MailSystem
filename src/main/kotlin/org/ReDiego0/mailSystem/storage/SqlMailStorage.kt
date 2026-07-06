@@ -121,10 +121,12 @@ class SqlMailStorage(
         CompletableFuture.supplyAsync({
             withConnection { conn ->
                 conn.prepareStatement(
-                    "DELETE FROM mails WHERE recipient_uuid = ? AND status = ?"
+                    """DELETE FROM mails WHERE recipient_uuid = ? AND (
+                        status = 'CLAIMED' 
+                        OR (status = 'READ' AND id NOT IN (SELECT DISTINCT mail_id FROM rewards))
+                    )"""
                 ).use { stmt ->
                     stmt.setString(1, playerUUID.toString())
-                    stmt.setString(2, MailStatus.READ.name)
                     stmt.executeUpdate()
                 }
             }

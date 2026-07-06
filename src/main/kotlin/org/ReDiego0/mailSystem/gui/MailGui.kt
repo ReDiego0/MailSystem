@@ -66,7 +66,7 @@ class MailGui(
     fun handleClick(player: Player, slot: Int) {
         val state = openStates[player.uniqueId] ?: return
         when {
-            slot in GuiConstants.MAIL_ICON_SLOTS -> handleMailClick(player, state, slot)
+            GuiConstants.MAIL_ROW_SLOTS.any { slot in it } -> handleMailClick(player, state, slot)
             slot == GuiConstants.PREV_PAGE_SLOT -> handlePrevPage(player, state)
             slot == GuiConstants.NEXT_PAGE_SLOT -> handleNextPage(player, state)
             slot == GuiConstants.REFRESH_SLOT -> handleRefresh(player)
@@ -306,7 +306,10 @@ class MailGui(
     }
 
     private fun createDeleteButton(mail: Mail?, confirming: Boolean = false): ItemStack {
-        val canDelete = mail != null && mail.status == MailStatus.READ && mail.rewards.isEmpty()
+        val canDelete = mail != null && (
+            (mail.status == MailStatus.READ && mail.rewards.isEmpty()) ||
+            mail.status == MailStatus.CLAIMED
+        )
         val item = ItemStack(if (canDelete) Material.LAVA_BUCKET else Material.GRAY_STAINED_GLASS_PANE)
         val meta = item.itemMeta ?: return item
 
@@ -318,8 +321,10 @@ class MailGui(
 
             if (mail != null && !canDelete) {
                 val reasons = mutableListOf<Component>()
-                if (mail.status != MailStatus.READ) reasons.add(msg.get("gui.mail_must_be_read"))
-                if (mail.rewards.isNotEmpty()) reasons.add(msg.get("gui.claim_before_deleting"))
+                when {
+                    mail.status == MailStatus.UNREAD -> reasons.add(msg.get("gui.mail_must_be_read"))
+                    mail.status == MailStatus.READ && mail.rewards.isNotEmpty() -> reasons.add(msg.get("gui.claim_before_deleting"))
+                }
                 meta.lore(reasons)
             } else if (mail == null) {
                 meta.lore(listOf(msg.get("gui.select_mail_first")))
@@ -368,12 +373,12 @@ class MailGui(
     // ── Click Handlers ───────────────────────────────────────────────────
 
     private fun handleMailClick(player: Player, state: GuiState, slot: Int) {
-        val index = GuiConstants.MAIL_ICON_SLOTS.indexOf(slot)
-        if (index == -1) return
+        val rowIndex = GuiConstants.MAIL_ROW_SLOTS.indexOfFirst { slot in it }
+        if (rowIndex == -1) return
         val pageMails = state.pageMails
-        if (index >= pageMails.size) return
+        if (rowIndex >= pageMails.size) return
 
-        val mail = pageMails[index]
+        val mail = pageMails[rowIndex]
 
         if (mail.status == MailStatus.UNREAD) {
             state.mails = state.mails.map {
@@ -461,11 +466,11 @@ class MailGui(
             msg.sendMessage(player, "errors.select_mail_first")
             return
         }
-        if (mail.status != MailStatus.READ) {
+        if (mail.status == MailStatus.UNREAD) {
             msg.sendMessage(player, "errors.must_be_read")
             return
         }
-        if (mail.rewards.isNotEmpty()) {
+        if (mail.status == MailStatus.READ && mail.rewards.isNotEmpty()) {
             msg.sendMessage(player, "errors.claim_before_delete")
             return
         }
