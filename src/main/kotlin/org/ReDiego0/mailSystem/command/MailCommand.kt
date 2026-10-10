@@ -127,7 +127,7 @@ class MailCommand(
         for (command in commands) {
             val displayItem = ItemStack(Material.PAPER)
             val meta = displayItem.itemMeta
-            meta?.displayName(net.kyori.adventure.text.Component.text("Command Reward", net.kyori.adventure.text.format.NamedTextColor.GOLD))
+            meta?.displayName(net.kyori.adventure.text.Component.text("Recompensa por comando", net.kyori.adventure.text.format.NamedTextColor.GOLD))
             meta?.lore(listOf(net.kyori.adventure.text.Component.text(command, net.kyori.adventure.text.format.NamedTextColor.GRAY)))
             displayItem.itemMeta = meta
             builder.addCommandReward(displayItem, listOf(command))

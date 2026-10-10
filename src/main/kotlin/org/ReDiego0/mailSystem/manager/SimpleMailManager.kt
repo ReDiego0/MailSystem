@@ -42,6 +42,10 @@ class SimpleMailManager(
             val recipient = Bukkit.getPlayer(mail.recipientUUID)
             if (recipient != null && recipient.isOnline && !wasQueued) {
                 notifyNewMail(recipient)
+                val gui = org.ReDiego0.mailSystem.MailSystem.getGui()
+                if (gui.isOpen(recipient)) {
+                    Bukkit.getScheduler().runTask(plugin, Runnable { gui.refresh(recipient) })
+                }
             }
         }, executor)
 
@@ -128,10 +132,11 @@ class SimpleMailManager(
         CompletableFuture.supplyAsync({
             var profile = storage.loadProfile(playerUUID).join()
             if (profile == null) {
+                val existingMails = storage.getMails(playerUUID).join()
                 profile = MailProfile(
                     playerUUID = playerUUID,
                     playerName = Bukkit.getOfflinePlayer(playerUUID).name ?: "Unknown",
-                    mails = mutableListOf(),
+                    mails = existingMails.toMutableList(),
                     lastAccessed = System.currentTimeMillis()
                 )
                 storage.saveProfile(profile).join()
@@ -170,9 +175,14 @@ class SimpleMailManager(
         } catch (_: Exception) { null }
 
         if (msgManager != null) {
-            msgManager.sendMessage(player, "notifications.new_mail")
+            msgManager.sendNewMailNotification(player)
         } else {
-            player.sendMessage("§eYou have new mail! Open your inbox with §6/mail")
+            val legacy = net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer.legacyAmpersand()
+            val base = legacy.deserialize("&e¡Tienes correo nuevo! ")
+            val hint = legacy.deserialize("&6[Abrir Buzón]")
+                .clickEvent(net.kyori.adventure.text.event.ClickEvent.runCommand("/mail"))
+                .hoverEvent(net.kyori.adventure.text.event.HoverEvent.showText(net.kyori.adventure.text.Component.text("/mail")))
+            player.sendMessage(base.append(hint))
         }
     }
 

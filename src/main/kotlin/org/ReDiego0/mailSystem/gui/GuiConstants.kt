@@ -9,7 +9,7 @@ object GuiConstants {
     const val INVENTORY_SIZE = 54
     const val MAILS_PER_PAGE = 5
 
-    val TITLE_COMPONENT: Component = Component.text("Mail Inbox", NamedTextColor.DARK_GRAY)
+    val TITLE_COMPONENT: Component = Component.text("Buzón de Correo", NamedTextColor.DARK_GRAY)
 
     val MAIL_ICON_SLOTS = intArrayOf(0, 9, 18, 27, 36)
     val MAIL_ROW_SLOTS = arrayOf(

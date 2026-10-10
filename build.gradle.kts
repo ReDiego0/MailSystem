@@ -1,5 +1,5 @@
 plugins {
-    kotlin("jvm") version "2.4.20-Beta1"
+    kotlin("jvm") version "2.2.21"
     id("com.gradleup.shadow") version "8.3.0"
     id("xyz.jpenilla.run-paper") version "2.3.1"
 }
@@ -42,6 +42,11 @@ tasks {
 val targetJavaVersion = 21
 kotlin {
     jvmToolchain(targetJavaVersion)
+}
+
+tasks.shadowJar {
+    archiveClassifier.set("")
+    mergeServiceFiles()
 }
 
 tasks.build {
