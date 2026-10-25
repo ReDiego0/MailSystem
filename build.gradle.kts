@@ -1,6 +1,9 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
 plugins {
     kotlin("jvm") version "2.2.21"
-    id("com.gradleup.shadow") version "8.3.0"
+    id("com.gradleup.shadow") version "9.2.2"
     id("xyz.jpenilla.run-paper") version "2.3.1"
 }
 
@@ -41,7 +44,18 @@ tasks {
 
 val targetJavaVersion = 21
 kotlin {
-    jvmToolchain(targetJavaVersion)
+    // En el entorno solo hay JDK 25 disponible; compilamos con él...
+    jvmToolchain(25)
+}
+
+tasks.withType<JavaCompile> {
+    // ...pero emitimos bytecode Java 21, requisito de Paper 1.21.x
+    options.release.set(targetJavaVersion)
+    options.encoding = "UTF-8"
+}
+
+tasks.withType<KotlinCompile> {
+    compilerOptions.jvmTarget.set(JvmTarget.JVM_21)
 }
 
 tasks.shadowJar {

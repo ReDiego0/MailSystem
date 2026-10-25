@@ -147,7 +147,7 @@ class MailGui(
         lore.add(msg.get("gui.mail_date", "date" to DATE_FORMAT.format(Date(mail.createdAt))))
         lore.add(Component.empty())
         lore.add(msg.get("gui.${mail.status.name.lowercase()}"))
-        if (mail.rewards.isNotEmpty()) {
+        if (mail.status != MailStatus.CLAIMED && mail.rewards.isNotEmpty()) {
             lore.add(msg.get("gui.rewards_pending", "count" to mail.rewards.size.toString()))
         }
         lore.add(Component.empty())

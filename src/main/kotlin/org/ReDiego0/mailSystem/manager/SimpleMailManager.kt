@@ -1,6 +1,7 @@
 package org.ReDiego0.mailSystem.manager
 
 import org.ReDiego0.mailSystem.api.MailApi
+import org.ReDiego0.mailSystem.api.MailClaimEvent
 import org.ReDiego0.mailSystem.api.SimpleMailApi
 import org.ReDiego0.mailSystem.logging.AuditLogger
 import org.ReDiego0.mailSystem.model.Mail
@@ -70,7 +71,15 @@ class SimpleMailManager(
             }
 
             val physicalRewards = rewards.filterIsInstance<PhysicalReward>()
-            if (!hasInventorySpace(player, physicalRewards))
+            val eventFuture = CompletableFuture<MutableList<PhysicalReward>>()
+            Bukkit.getScheduler().runTask(plugin, Runnable {
+                val event = MailClaimEvent(player, mail, physicalRewards.toMutableList())
+                Bukkit.getPluginManager().callEvent(event)
+                eventFuture.complete(event.physicalRewards)
+            })
+            val adjustedPhysicalRewards = eventFuture.join()
+
+            if (!hasInventorySpace(player, adjustedPhysicalRewards))
                 return@supplyAsync ClaimResult.InventoryFull
 
             val commandRewards = rewards.filterIsInstance<CommandReward>()
@@ -82,10 +91,10 @@ class SimpleMailManager(
                 }
             }
 
-            if (physicalRewards.isNotEmpty()) {
+            if (adjustedPhysicalRewards.isNotEmpty()) {
                 val syncFuture = CompletableFuture<Void>()
                 Bukkit.getScheduler().runTask(plugin, Runnable {
-                    for (reward in physicalRewards) {
+                    for (reward in adjustedPhysicalRewards) {
                         player.inventory.addItem(reward.item)
                     }
                     syncFuture.complete(null)
